@@ -1,0 +1,46 @@
+# Python virtual env
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+*.egg
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/out/
+
+# Model files (large binaries)
+models/
+*.pth
+*.ckpt
+
+# Temp files
+temp/
+
+# HuggingFace cache
+hf_cache/
+torch_cache/
+
+# Environment
+.env
+.env.local
+*.log
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Electron build output
+release/

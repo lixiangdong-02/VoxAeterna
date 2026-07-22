@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import WaveSurfer from 'wavesurfer.js'
 import { useTtsStore } from '../stores/ttsStore'
+import { useLocaleStore } from '../stores/localeStore'
 
 const ttsStore = useTtsStore()
+const localeStore = useLocaleStore()
+const t = computed(() => localeStore.t)
 const container = ref<HTMLDivElement | null>(null)
 const ws = ref<WaveSurfer | null>(null)
 const playing = ref(false)
@@ -50,13 +53,13 @@ function exportAudio(format: 'wav' | 'mp3') {
 <template>
   <div class="panel timeline-panel">
     <div class="tl-top">
-      <span class="panel-header" style="margin-bottom: 0">音频</span>
+      <span class="panel-header" style="margin-bottom: 0">{{ t.timeline.title }}</span>
       <div class="tl-actions">
         <button
           class="btn btn-primary btn-sm"
           :disabled="!ttsStore.audioUrl"
           @click="togglePlay"
-        >{{ playing ? '暂停' : '播放' }}</button>
+        >{{ playing ? t.timeline.pause : t.timeline.play }}</button>
         <button
           class="btn btn-ghost btn-sm"
           :disabled="!ttsStore.audioUrl"
@@ -72,7 +75,7 @@ function exportAudio(format: 'wav' | 'mp3') {
 
     <div class="waveform-wrap">
       <div v-if="!ttsStore.audioUrl" class="waveform-empty">
-        合成完成后，波形将显示在这里
+        {{ t.timeline.empty }}
       </div>
       <div ref="container" :class="{ hidden: !ttsStore.audioUrl }" class="waveform-container"></div>
     </div>
@@ -102,7 +105,7 @@ function exportAudio(format: 'wav' | 'mp3') {
   flex: 1;
   border-radius: var(--radius-md);
   overflow: hidden;
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--c-bg-waveform);
   display: flex;
   align-items: center;
   justify-content: center;

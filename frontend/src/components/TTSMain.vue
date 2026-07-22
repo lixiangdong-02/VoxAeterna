@@ -1,12 +1,21 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useTtsStore } from '../stores/ttsStore'
 import { useModelStore } from '../stores/modelStore'
 import { useHistoryStore } from '../stores/historyStore'
+import { useUserStore } from '../stores/userStore'
+import { useLocaleStore } from '../stores/localeStore'
+
+const emit = defineEmits<{ upgrade: [] }>()
 
 const ttsStore = useTtsStore()
 const modelStore = useModelStore()
 const historyStore = useHistoryStore()
+const userStore = useUserStore()
+const localeStore = useLocaleStore()
+const t = computed(() => localeStore.t)
+
+const trialBlocked = ref(false)
 
 const canSynthesize = computed(() =>
   modelStore.isLoaded &&
@@ -18,15 +27,31 @@ const canSynthesize = computed(() =>
 const overLimit = computed(() => ttsStore.charCount > ttsStore.maxChars)
 
 async function onSynthesize() {
+  trialBlocked.value = false
+
+  if (userStore.subscriptionPlan === 'free') {
+    if (userStore.trialRemaining !== null && userStore.trialRemaining <= 0) {
+      trialBlocked.value = true
+      return
+    }
+  }
+
   await ttsStore.startSynthesis()
-  if (ttsStore.taskState === 'done') historyStore.refresh()
+
+  if (ttsStore.taskState === 'done') {
+    if (userStore.subscriptionPlan === 'free') {
+      await userStore.consumeTrial()
+    }
+    const { useAuthStore } = await import('@/stores/authStore')
+    historyStore.refresh(useAuthStore().user?.id || 0)
+  }
 }
 
 const stateConfig = computed(() => {
   switch (ttsStore.taskState) {
-    case 'running': return { label: '合成中…', cls: 'running' }
-    case 'done': return { label: '完成', cls: 'done' }
-    case 'error': return { label: '失败', cls: 'error' }
+    case 'running': return { label: t.value.tts.synthesizing, cls: 'running' }
+    case 'done': return { label: t.value.tts.done, cls: 'done' }
+    case 'error': return { label: t.value.tts.failed, cls: 'error' }
     default: return { label: '', cls: '' }
   }
 })
@@ -35,7 +60,7 @@ const stateConfig = computed(() => {
 <template>
   <div class="panel tts-main">
     <div class="main-header">
-      <span class="panel-header" style="margin-bottom: 0">文本合成</span>
+      <span class="panel-header" style="margin-bottom: 0">{{ t.tts.title }}</span>
       <span class="char-count" :class="{ over: overLimit }">
         {{ ttsStore.charCount }}<span class="char-limit"> / {{ ttsStore.maxChars }}</span>
       </span>
@@ -45,7 +70,7 @@ const stateConfig = computed(() => {
       v-model="ttsStore.text"
       class="tts-textarea"
       rows="4"
-      placeholder="输入文字，即刻合成语音…"
+      :placeholder="t.tts.placeholder"
       @input="ttsStore.updateCharCount(($event.target as HTMLTextAreaElement).value)"
     ></textarea>
 
@@ -55,13 +80,13 @@ const stateConfig = computed(() => {
         :disabled="!canSynthesize || overLimit"
         @click="onSynthesize"
       >
-        开始合成
+        {{ t.tts.synthesize }}
       </button>
       <button
         v-if="ttsStore.taskState === 'running'"
         class="btn btn-ghost"
         @click="ttsStore.cancelTask()"
-      >取消</button>
+      >{{ t.tts.cancel }}</button>
       <span
         v-if="stateConfig.cls"
         class="tts-state"
@@ -69,6 +94,10 @@ const stateConfig = computed(() => {
       >{{ stateConfig.label }}</span>
     </div>
 
+    <p v-if="trialBlocked" class="trial-msg">
+      {{ t.tts.trialExhausted }}
+      <a href="#" @click.prevent="emit('upgrade')">{{ t.tts.upgrade }}</a>
+    </p>
     <p v-if="ttsStore.taskError" class="error-msg">{{ ttsStore.taskError }}</p>
   </div>
 </template>
@@ -105,7 +134,7 @@ const stateConfig = computed(() => {
   min-height: 80px;
   font-size: 15px;
   line-height: 1.8;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--c-bg-input);
   border: 1px solid var(--c-border);
   border-radius: var(--radius-md);
   padding: 16px;
@@ -133,9 +162,20 @@ const stateConfig = computed(() => {
   padding: 3px 10px;
   border-radius: 100px;
 }
-.tts-state.running { color: #F0A500; background: rgba(240, 165, 0, 0.1); }
-.tts-state.done { color: var(--c-accent); background: rgba(124, 252, 0, 0.08); }
+.tts-state.running { color: var(--c-amber); background: var(--c-amber-bg); }
+.tts-state.done { color: var(--c-accent); background: var(--c-accent-bg); }
 .tts-state.error { color: var(--c-danger); background: rgba(224, 82, 61, 0.1); }
 
 .error-msg { font-size: 11px; color: var(--c-danger); }
+.trial-msg {
+  font-size: 12px;
+  color: var(--c-amber);
+  background: var(--c-amber-bg);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+}
+.trial-msg a {
+  color: var(--c-accent);
+  text-decoration: underline;
+}
 </style>

@@ -16,6 +16,9 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn as _uvicorn
 
 from app.api.routes import router
+from app.config import InferenceSettings
+
+settings = InferenceSettings()
 
 # 日志配置
 logging.basicConfig(
@@ -42,6 +45,7 @@ app = FastAPI(
     description="GPT-SoVITS TTS 推理服务",
     version="0.1.0",
     lifespan=lifespan,
+    root_path="/VoxAeterna",
 )
 
 # CORS —— Electron 前端默认 localhost:5173
@@ -51,17 +55,17 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Task-Id", "X-Audio-Duration", "X-Audio-Sample-Rate"],
 )
 
 app.include_router(router)
 
 
 if __name__ == "__main__":
-    import uvicorn as _uvicorn
     _uvicorn.run(
         "app.main:app",
-        host="127.0.0.1",
-        port=9880,
+        host=settings.host,
+        port=settings.port,
         reload=False,
         log_level="info",
         timeout_keep_alive=120,

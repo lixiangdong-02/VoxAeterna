@@ -722,6 +722,18 @@ class TTS:
             self.vocoder = self.vocoder.to(device)
         if self.sr_model is not None:
             self.sr_model = self.sr_model.to(device)
+        # 清除 prompt_cache 中旧设备上的 tensor，避免跨设备推理崩溃
+        self.prompt_cache = {
+            "ref_audio_path": None,
+            "prompt_semantic": None,
+            "refer_spec": [],
+            "prompt_text": None,
+            "prompt_lang": None,
+            "phones": None,
+            "bert_features": None,
+            "norm_text": None,
+            "aux_ref_audio_paths": [],
+        }
 
     def set_ref_audio(self, ref_audio_path: str):
         """

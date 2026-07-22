@@ -1,7 +1,7 @@
 """推理编排服务 —— 持有 ModelManager，驱动 TTS.run()"""
 
-import os
-import logging
+import logging, os
+import threading
 from pathlib import Path
 from typing import Generator, Tuple, AsyncGenerator, Optional
 import time
@@ -35,6 +35,7 @@ class InferenceService:
         temperature: float = 1.0,
         batch_size: int = 1,
         seed: int = -1,
+        cancel_event: Optional[threading.Event] = None,
     ) -> Generator[Tuple[int, np.ndarray], None, None]:
         """
         TTS 流式推理 generator。
@@ -68,6 +69,11 @@ class InferenceService:
         os.chdir(str(_INFERENCE_DIR))
         try:
             for sr, audio_chunk in tts.run(req):
+                # 检查取消信号
+                if cancel_event and cancel_event.is_set():
+                    logger.info("接收到取消信号，停止推理")
+                    tts.stop()
+                    break
                 if len(audio_chunk) > 0:
                     yield sr, audio_chunk
         except Exception:

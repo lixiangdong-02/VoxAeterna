@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useTtsStore } from '../stores/ttsStore'
+import { useLocaleStore } from '../stores/localeStore'
 
 const ttsStore = useTtsStore()
+const localeStore = useLocaleStore()
+const t = computed(() => localeStore.t)
 const refInput = ref<HTMLInputElement | null>(null)
 
 async function onRefUpload(e: Event) {
@@ -11,43 +14,43 @@ async function onRefUpload(e: Event) {
 }
 
 const splitOpts = [
-  { v: 'cut0', l: 'cut0 · 保守' },
+  { v: 'cut0', l: 'cut0 · Conservative' },
   { v: 'cut1', l: 'cut1' },
   { v: 'cut2', l: 'cut2' },
   { v: 'cut3', l: 'cut3' },
   { v: 'cut4', l: 'cut4' },
-  { v: 'cut5', l: 'cut5 · 推荐' },
+  { v: 'cut5', l: 'cut5 · Recommended' },
 ]
 </script>
 
 <template>
   <div class="panel param-panel">
-    <div class="panel-header">参数</div>
+    <div class="panel-header">{{ t.params.title }}</div>
 
     <!-- 参考音频 -->
     <div class="pa-group">
-      <label>参考音频</label>
+      <label>{{ t.params.refAudio }}</label>
       <div class="ref-row">
-        <span class="ref-name">{{ ttsStore.refAudioFileName || '未选择…' }}</span>
-        <button class="btn btn-ghost btn-sm" @click="refInput?.click()">浏览</button>
+        <span class="ref-name">{{ ttsStore.refAudioFileName || t.params.notSelected }}</span>
+        <button class="btn btn-ghost btn-sm" @click="refInput?.click()">{{ t.params.browse }}</button>
         <input ref="refInput" type="file" accept="audio/*" hidden @change="onRefUpload" />
       </div>
     </div>
 
     <!-- prompt_text -->
     <div class="pa-group">
-      <label>参考文本</label>
+      <label>{{ t.params.refText }}</label>
       <input
         v-model="ttsStore.promptText"
         type="text"
-        placeholder="参考音频说了什么？"
+        :placeholder="t.params.refTextPlaceholder"
       />
     </div>
 
     <!-- 语速 -->
     <div class="pa-group">
       <div class="pa-label-row">
-        <label>语速</label>
+        <label>{{ t.params.speed }}</label>
         <span class="pa-val">{{ ttsStore.speedFactor.toFixed(1) }}x</span>
       </div>
       <input v-model.number="ttsStore.speedFactor" type="range" min="0.5" max="2.0" step="0.1" />
@@ -55,7 +58,7 @@ const splitOpts = [
 
     <!-- 断句 -->
     <div class="pa-group">
-      <label>断句策略</label>
+      <label>{{ t.params.split }}</label>
       <select v-model="ttsStore.splitMethod">
         <option v-for="o in splitOpts" :key="o.v" :value="o.v">{{ o.l }}</option>
       </select>
@@ -63,7 +66,7 @@ const splitOpts = [
 
     <!-- 高级 -->
     <button class="btn btn-ghost btn-sm pa-toggle" @click="ttsStore.showAdvanced = !ttsStore.showAdvanced">
-      {{ ttsStore.showAdvanced ? '收起' : '高级设置' }}
+      {{ ttsStore.showAdvanced ? t.params.collapse : t.params.advancedToggle }}
       <span class="toggle-arrow" :class="{ open: ttsStore.showAdvanced }">▾</span>
     </button>
 
@@ -81,7 +84,7 @@ const splitOpts = [
         <input v-model.number="ttsStore.temperature" type="range" min="0.1" max="2.0" step="0.1" />
       </div>
       <div class="pa-group">
-        <label>seed · -1为随机</label>
+        <label>seed · {{ t.params.seed }}</label>
         <input v-model.number="ttsStore.seed" type="number" />
       </div>
     </div>

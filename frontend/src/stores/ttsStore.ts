@@ -3,6 +3,23 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { SplitMethod } from '../types'
 import { ttsApi } from '../api'
+import { useAuthStore } from './authStore'
+
+/** 从 blob 解码音频时长（秒） */
+function getAudioDuration(blob: Blob): Promise<number> {
+  return new Promise((resolve) => {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+    const reader = new FileReader()
+    reader.onload = () => {
+      ctx.decodeAudioData(reader.result as ArrayBuffer, (buffer) => {
+        resolve(buffer.duration)
+        ctx.close()
+      }, () => { resolve(0); ctx.close() })
+    }
+    reader.onerror = () => resolve(0)
+    reader.readAsArrayBuffer(blob)
+  })
+}
 
 export const useTtsStore = defineStore('tts', () => {
   const text = ref('')
@@ -42,6 +59,9 @@ export const useTtsStore = defineStore('tts', () => {
     taskState.value = 'running'
     taskError.value = null
 
+    // 获取当前用户 ID（从 authStore，而非 localStorage）
+    const userId = useAuthStore().user?.id || 0
+
     try {
       const res = await ttsApi.synthesize({
         text: text.value,
@@ -57,6 +77,7 @@ export const useTtsStore = defineStore('tts', () => {
         batch_size: 1,
         seed: seed.value,
         streaming: false,
+        user_id: userId,
       })
 
       audioBlob.value = res.data
@@ -67,6 +88,19 @@ export const useTtsStore = defineStore('tts', () => {
       if (taskIdHeader) taskId.value = taskIdHeader
 
       taskState.value = 'done'
+
+      // 自动存入保存区
+      try {
+        const { useClipStore } = await import('./clipStore')
+        const clipStore = useClipStore()
+        const headerDur = Number(res.headers['x-audio-duration'])
+        const duration = headerDur > 0 ? headerDur : await getAudioDuration(res.data)
+        const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+        clipStore.addClip(`合成-${ts}`, res.data, duration)
+        console.log('[ttsStore] 已自动保存到保存区, 时长:', duration)
+      } catch (e: any) {
+        console.warn('[ttsStore] 自动保存失败:', e)
+      }
     } catch (e: any) {
       taskState.value = 'error'
       taskError.value = e.response?.data?.detail || e.message || '推理失败'
@@ -75,12 +109,26 @@ export const useTtsStore = defineStore('tts', () => {
 
   async function cancelTask() {
     if (!taskId.value) return
+    const userId = useAuthStore().user?.id || 0
     try {
       await ttsApi.cancel(taskId.value)
       taskState.value = 'idle'
     } catch (e: any) {
       console.error('取消失败:', e)
     }
+  }
+
+  function loadFromHistory(record: {
+    text?: string | null
+    prompt_text?: string | null
+    speed_factor?: number | null
+    ref_audio_path?: string | null
+  }) {
+    text.value = record.text || ''
+    promptText.value = record.prompt_text || ''
+    if (record.speed_factor != null) speedFactor.value = record.speed_factor
+    if (record.ref_audio_path) refAudioPath.value = record.ref_audio_path
+    updateCharCount(text.value)
   }
 
   return {
@@ -90,5 +138,6 @@ export const useTtsStore = defineStore('tts', () => {
     taskId, taskState, taskError, audioBlob, audioUrl,
     charCount, maxChars,
     updateCharCount, uploadRefAudio, startSynthesis, cancelTask,
+    loadFromHistory,
   }
 })

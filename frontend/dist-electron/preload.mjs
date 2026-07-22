@@ -20,3 +20,15 @@ electron.contextBridge.exposeInMainWorld("ipcRenderer", {
   // You can expose other APTs you need here.
   // ...
 });
+electron.contextBridge.exposeInMainWorld("deviceFingerprint", {
+  get: () => electron.ipcRenderer.invoke("get-device-fingerprint")
+});
+electron.contextBridge.exposeInMainWorld("windowControls", {
+  minimize: () => electron.ipcRenderer.invoke("window-minimize"),
+  maximize: () => electron.ipcRenderer.invoke("window-maximize"),
+  close: () => electron.ipcRenderer.invoke("window-close"),
+  isMaximized: () => electron.ipcRenderer.invoke("window-is-maximized"),
+  onMaximizeChange: (callback) => {
+    electron.ipcRenderer.on("window-maximized", (_event, maximized) => callback(maximized));
+  }
+});

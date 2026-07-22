@@ -1,4 +1,4 @@
-/** 历史记录 Store —— 最近 5 条 */
+/** 历史记录 Store —— 按用户从 SQLite 查询 */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { HistoryRecord, ExportFormat } from '../types'
@@ -7,12 +7,26 @@ import { ttsApi, exportApi } from '../api'
 export const useHistoryStore = defineStore('history', () => {
   const records = ref<HistoryRecord[]>([])
 
-  async function refresh() {
+  async function refresh(userId: number = 0) {
     try {
-      const res = await ttsApi.history()
-      records.value = (res.data as HistoryRecord[]) || []
+      if (userId > 0) {
+        const res = await ttsApi.historyByUser(userId)
+        records.value = (res.data as HistoryRecord[]) || []
+      } else {
+        // 兼容：无 user_id 时不尝试
+        records.value = []
+      }
     } catch (e) {
       console.error('获取历史失败:', e)
+    }
+  }
+
+  async function deleteRecord(taskId: string, userId: number) {
+    try {
+      await ttsApi.deleteHistory(taskId, userId)
+      await refresh(userId)
+    } catch (e) {
+      console.error('删除失败:', e)
     }
   }
 
@@ -33,5 +47,5 @@ export const useHistoryStore = defineStore('history', () => {
     }
   }
 
-  return { records, refresh, exportAudio }
+  return { records, refresh, deleteRecord, exportAudio }
 })

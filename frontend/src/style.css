@@ -1,6 +1,8 @@
 /* ===== VoxAeterna — 深色声呐 · 杂志排版 · 微交互 ===== */
 
-:root {
+/* ── 暗色模式（默认） ── */
+:root,
+[data-theme="dark"] {
   --c-accent: #7CFC00;
   --c-accent-glow: rgba(124, 252, 0, 0.25);
   --c-accent-dim: #4A8F00;
@@ -8,14 +10,75 @@
   --c-bg-elevated: #161614;
   --c-bg-panel: rgba(22, 22, 20, 0.85);
   --c-bg-glass: rgba(255, 255, 255, 0.03);
+  --c-bg-glass-hover: rgba(255, 255, 255, 0.06);
+  --c-bg-input: rgba(255, 255, 255, 0.04);
+  --c-bg-track: rgba(255, 255, 255, 0.03);
+  --c-bg-waveform: rgba(0, 0, 0, 0.25);
+  --c-bg-overlay: rgba(0, 0, 0, 0.6);
+  --c-bg-track-hover: rgba(255, 255, 255, 0.04);
   --c-text: #EBEBE8;
   --c-text-secondary: #9D9D98;
-  --c-text-muted: #5E5E5A;
+  --c-text-muted: #6A6A64;
   --c-border: rgba(255, 255, 255, 0.06);
   --c-border-active: rgba(124, 252, 0, 0.35);
+  --c-border-dash: rgba(124, 252, 0, 0.15);
   --c-danger: #E0523D;
   --c-surface: #1A1A18;
+  --c-accent-bg: rgba(124, 252, 0, 0.08);
+  --c-accent-bg-2: rgba(124, 252, 0, 0.12);
+  --c-amber: #F0A500;
+  --c-amber-bg: rgba(240, 165, 0, 0.1);
+  --c-btn-primary-text: #0A0A08;
+  --c-titlebar-bg: #0D0D0C;
+  --c-titlebar-fill: #0D0D0C;
+  --c-scrollbar-thumb: rgba(255, 255, 255, 0.08);
+  --c-scrollbar-thumb-hover: rgba(255, 255, 255, 0.16);
+  --c-range-track: rgba(255, 255, 255, 0.06);
+  --c-select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239D9D98' %3E%3Cpath d='M3 5l3 3 3-3'/%3E%3C/svg%3E");
+  --c-grid-line: rgba(255, 255, 255);
+}
 
+/* ── 亮色模式 ── */
+[data-theme="light"] {
+  --c-accent: #4CAF10;
+  --c-accent-glow: rgba(76, 175, 16, 0.18);
+  --c-accent-dim: #3D8E0D;
+  --c-bg: #FDFDFC;
+  --c-bg-elevated: #F5F5F2;
+  --c-bg-panel: rgba(245, 245, 242, 0.92);
+  --c-bg-glass: rgba(0, 0, 0, 0.03);
+  --c-bg-glass-hover: rgba(0, 0, 0, 0.05);
+  --c-bg-input: rgba(0, 0, 0, 0.03);
+  --c-bg-track: rgba(0, 0, 0, 0.02);
+  --c-bg-waveform: rgba(0, 0, 0, 0.04);
+  --c-bg-overlay: rgba(0, 0, 0, 0.35);
+  --c-bg-track-hover: rgba(0, 0, 0, 0.05);
+  --c-text: #1C1C1A;
+  --c-text-secondary: #6B6B65;
+  --c-text-muted: #9B9B95;
+  --c-border: rgba(0, 0, 0, 0.08);
+  --c-border-active: rgba(76, 175, 16, 0.4);
+  --c-border-dash: rgba(76, 175, 16, 0.2);
+  --c-danger: #D94235;
+  --c-surface: #F0F0ED;
+  --c-accent-bg: rgba(76, 175, 16, 0.08);
+  --c-accent-bg-2: rgba(76, 175, 16, 0.14);
+  --c-amber: #D48F00;
+  --c-amber-bg: rgba(212, 143, 0, 0.1);
+  --c-btn-primary-text: #FFFFFF;
+  --c-titlebar-bg: #FDFDFC;
+  --c-titlebar-fill: #FDFDFC;
+  --c-scrollbar-thumb: rgba(0, 0, 0, 0.12);
+  --c-scrollbar-thumb-hover: rgba(0, 0, 0, 0.22);
+  --c-range-track: rgba(0, 0, 0, 0.08);
+  --c-select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236B6B65' %3E%3Cpath d='M3 5l3 3 3-3'/%3E%3C/svg%3E");
+  --c-grid-line: rgba(0, 0, 0);
+}
+
+/* ── 通用设计 Token（不随主题切换） ── */
+:root,
+[data-theme="dark"],
+[data-theme="light"] {
   --font-display: 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', -apple-system, sans-serif;
   --font-body: 'Microsoft YaHei', 'PingFang SC', -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
@@ -31,7 +94,7 @@
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
-  color-scheme: dark;
+  color-scheme: light dark;
   color: var(--c-text);
   background-color: var(--c-bg);
   font-synthesis: none;
@@ -56,6 +119,8 @@ html, body, #app {
   font-size: 14px;
   line-height: 1.6;
   user-select: none;
+  display: flex;
+  flex-direction: column;
 }
 
 ::selection {
@@ -63,14 +128,14 @@ html, body, #app {
   color: var(--c-text);
 }
 
-/* 极简滚动条 —— 深色底 + 微亮轨道 */
+/* 极简滚动条 */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--c-scrollbar-thumb);
   border-radius: 2px;
 }
-::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.16); }
+::-webkit-scrollbar-thumb:hover { background: var(--c-scrollbar-thumb-hover); }
 
 :focus-visible {
   outline: 2px solid var(--c-accent);
@@ -107,7 +172,7 @@ html, body, #app {
 
 .btn-primary {
   background: var(--c-accent);
-  color: #0A0A08;
+  color: var(--c-btn-primary-text);
 }
 .btn-primary:hover { box-shadow: 0 0 24px var(--c-accent-glow); }
 .btn-primary:active { transform: scale(0.97); }
@@ -118,7 +183,7 @@ html, body, #app {
   color: var(--c-text);
   border: 1px solid var(--c-border);
 }
-.btn-secondary:hover { background: rgba(255, 255, 255, 0.06); border-color: var(--c-border-active); }
+.btn-secondary:hover { background: var(--c-bg-glass-hover); border-color: var(--c-border-active); }
 
 .btn-ghost {
   background: transparent;
@@ -127,7 +192,7 @@ html, body, #app {
 }
 .btn-ghost:hover { color: var(--c-text); background: var(--c-bg-glass); }
 
-.btn-danger { background: var(--c-danger); color: white; }
+.btn-danger { background: var(--c-danger); color: #fff; }
 .btn-danger:hover { box-shadow: 0 0 20px rgba(224, 82, 61, 0.3); }
 
 .btn-sm { padding: 4px 10px; font-size: 11px; border-radius: 4px; }
@@ -158,7 +223,7 @@ input, textarea, select {
   font-family: var(--font-body);
   font-size: 13px;
   color: var(--c-text);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--c-bg-input);
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
   padding: 10px 14px;
@@ -173,18 +238,23 @@ input:focus, textarea:focus, select:focus {
 textarea { resize: vertical; }
 select {
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239D9D98' %3E%3Cpath d='M3 5l3 3 3-3'/%3E%3C/svg%3E");
+  background-image: var(--c-select-arrow);
   background-repeat: no-repeat;
   background-position: right 10px center;
   padding-right: 30px;
+  color: var(--c-text);
+}
+select option {
+  background: var(--c-surface);
+  color: var(--c-text);
 }
 
-/* 范围滑块 —— 赛博绿 */
+/* 范围滑块 */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
   height: 4px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--c-range-track);
   border-radius: 2px;
   padding: 0;
   border: none;

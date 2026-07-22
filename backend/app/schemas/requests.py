@@ -56,6 +56,7 @@ class TTSRequest(BaseModel):
     batch_size: int = Field(default=1, ge=1, le=10)
     seed: int = Field(default=-1)
     streaming: bool = Field(default=True, description="是否流式返回")
+    user_id: int = Field(default=0, description="云端的用户 ID，0 表示未登录")
 
 
 # ============ 任务状态 ============
@@ -76,6 +77,9 @@ class TaskStatus(BaseModel):
     duration_seconds: Optional[float] = None
     sample_rate: Optional[int] = None
     error_message: Optional[str] = None
+    prompt_text: Optional[str] = None
+    speed_factor: Optional[float] = None
+    ref_audio_path: Optional[str] = None
     created_at: Optional[str] = None
 
 
@@ -99,3 +103,27 @@ class MessageResponse(BaseModel):
 class ErrorResponse(BaseModel):
     error: str
     detail: Optional[str] = None
+
+
+# ============ 音色配对 ============
+
+class VoiceProfileOut(BaseModel):
+    id: str
+    name: str
+    description: str = ""
+    t2s_file: str
+    vits_file: str
+    image: Optional[str] = None
+    created_at: str
+
+class CreateProfileRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    description: str = Field(default="", max_length=500)
+    t2s_path: str = Field(..., min_length=1, description="models/ 下的 .ckpt 文件名")
+    vits_path: str = Field(..., min_length=1, description="models/ 下的 .pth 文件名")
+    image: Optional[str] = Field(default=None, description="头像文件名（已上传到 profile_images/）")
+
+class UpdateProfileRequest(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    description: Optional[str] = Field(default=None, max_length=500)
+    image: Optional[str] = Field(default=None, description="新的头像文件名")

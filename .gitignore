@@ -44,3 +44,13 @@ Desktop.ini
 
 # Electron build output
 release/
+
+
+# Cloud admin node_modules
+cloud/admin/node_modules/
+
+# FC build artifacts
+*.zip
+
+# FC build temp
+cloud/voxaeterna-fc/

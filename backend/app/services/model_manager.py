@@ -53,6 +53,9 @@ if "tools" not in sys.modules:
 
 
 from app.schemas.requests import ModelStatus
+from app.config import InferenceSettings
+
+_settings = InferenceSettings()
 
 
 class ModelManager:
@@ -60,12 +63,12 @@ class ModelManager:
 
     def __init__(self):
         self._tts = None          # TTS 实例
-        self._config = None       # TTS_Config 实例
+        self._config_obj = None   # TTS_Config 实例
         self._current_t2s: Optional[str] = None
         self._current_vits: Optional[str] = None
         self._is_loading: bool = False
-        self._device: str = "cuda"
-        self._is_half: bool = True
+        self._device: str = _settings.device
+        self._is_half: bool = _settings.is_half
 
     @property
     def is_loaded(self) -> bool:
@@ -85,10 +88,14 @@ class ModelManager:
         self,
         t2s_path: str,
         vits_path: str,
-        device: str = "cuda",
-        is_half: bool = True,
+        device: Optional[str] = None,
+        is_half: Optional[bool] = None,
     ) -> None:
         """加载 TTS 模型到 GPU。若已加载其他模型则先卸载。"""
+        if device is None:
+            device = _settings.device
+        if is_half is None:
+            is_half = _settings.is_half
         if self._is_loading:
             raise RuntimeError("模型正在加载中，请等待")
         self._is_loading = True
@@ -96,9 +103,11 @@ class ModelManager:
         try:
             # 如果已加载了不同的模型，先卸载
             if self._tts is not None:
-                if self._current_t2s == t2s_path and self._current_vits == vits_path:
+                if (self._current_t2s == t2s_path and self._current_vits == vits_path
+                        and self._device == device and self._is_half == is_half):
                     logger.info("模型已加载，跳过")
                     return
+                logger.info("检测到模型或设备变更，卸载旧模型...")
                 self.unload()
 
             self._device = device
@@ -138,7 +147,7 @@ class ModelManager:
                 tts = TTS(config)
 
                 self._tts = tts
-                self._config = config
+                self._config_obj = config
                 self._current_t2s = t2s_path
                 self._current_vits = vits_path
                 logger.info("模型加载完成")
@@ -158,7 +167,7 @@ class ModelManager:
                 pass
             del self._tts
             self._tts = None
-            self._config = None
+            self._config_obj = None
 
             import gc
             gc.collect()

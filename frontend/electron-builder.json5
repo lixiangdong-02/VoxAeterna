@@ -1,15 +1,35 @@
 // @see - https://www.electron.build/configuration/configuration
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
-  "appId": "YourAppID",
+  "appId": "com.voicestudio.voxaeterna",
   "asar": true,
-  "productName": "YourAppName",
+  "productName": "VoxAeterna",
   "directories": {
     "output": "release/${version}"
   },
   "files": [
     "dist",
     "dist-electron"
+  ],
+  "extraResources": [
+    {
+      "from": "../backend",
+      "to": "backend",
+      "filter": ["**/*.py", "**/*.yaml", "**/*.yml", "**/*.json"]
+    },
+    {
+      "from": "../cloud",
+      "to": "cloud",
+      "filter": ["**/*.py", "**/*.yaml", "**/*.yml", "**/*.json"]
+    },
+    {
+      "from": "../icon.png",
+      "to": "icon.png"
+    },
+    {
+      "from": "../.env",
+      "to": ".env"
+    }
   ],
   "mac": {
     "target": [
@@ -18,6 +38,7 @@
     "artifactName": "${productName}-Mac-${version}-Installer.${ext}"
   },
   "win": {
+    "icon": "../icon.png",
     "target": [
       {
         "target": "nsis",
@@ -35,6 +56,7 @@
     "deleteAppDataOnUninstall": false
   },
   "linux": {
+    "icon": "../icon.png",
     "target": [
       "AppImage"
     ],

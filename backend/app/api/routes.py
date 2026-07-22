@@ -17,12 +17,18 @@ from app.schemas.requests import (
     TTSRequest,
     TaskStatus,
     ExportFormat,
+    VoiceProfileOut,
+    CreateProfileRequest,
+    UpdateProfileRequest,
 )
-from app.services.file_service import FileService
+from app.services.file_service import FileService, profile_service
 from app.services.model_manager import ModelManager
 from app.services.inference_service import InferenceService
 from app.services.task_service import TaskService, Task
 from app.services.audio_manager import AudioManager
+from app.services.history_store import list_by_user as history_list_by_user
+from app.services.history_store import delete_task as history_delete_task
+from app.services.history_store import get_task as history_get_task
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +39,66 @@ inference_service = InferenceService(model_manager)
 task_service = TaskService()
 
 router = APIRouter(prefix="/api")
+
+
+# ======================= 音色配对 =======================
+
+@router.get("/profiles")
+async def list_profiles():
+    """列出所有音色配对"""
+    return JSONResponse(content=profile_service.list())
+
+
+@router.post("/profiles/image")
+async def upload_profile_image(file: UploadFile = File(...)):
+    """上传音色头像，返回文件名"""
+    try:
+        saved_name = await file_service.save_profile_image(file)
+        return JSONResponse(content={"filename": saved_name})
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/profiles/image/{filename}")
+async def get_profile_image(filename: str):
+    """获取音色头像"""
+    img_path = file_service.get_profile_image_path(filename)
+    if not img_path:
+        raise HTTPException(status_code=404, detail="头像不存在")
+    import mimetypes
+    mime, _ = mimetypes.guess_type(str(img_path))
+    return FileResponse(path=str(img_path), media_type=mime or "image/png")
+
+
+@router.post("/profiles")
+async def create_profile(req: CreateProfileRequest):
+    """创建音色配对（.ckpt + .pth 文件必须已上传到 models/）"""
+    t2s_full = file_service.get_model_path(req.t2s_path)
+    vits_full = file_service.get_model_path(req.vits_path)
+    if not t2s_full:
+        raise HTTPException(status_code=404, detail=f"模型文件不存在: {req.t2s_path}")
+    if not vits_full:
+        raise HTTPException(status_code=404, detail=f"模型文件不存在: {req.vits_path}")
+    profile = profile_service.create(req.name, req.description, req.t2s_path, req.vits_path, req.image)
+    return JSONResponse(content=profile, status_code=201)
+
+
+@router.put("/profiles/{profile_id}")
+async def update_profile(profile_id: str, req: UpdateProfileRequest):
+    """修改音色名称/简介/头像"""
+    ok = profile_service.update(profile_id, req.name, req.description, req.image)
+    if not ok:
+        raise HTTPException(status_code=404, detail="音色不存在")
+    return MessageResponse(message="已更新")
+
+
+@router.delete("/profiles/{profile_id}")
+async def delete_profile(profile_id: str):
+    """删除音色配对（不删文件）"""
+    ok = profile_service.delete(profile_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="音色不存在")
+    return MessageResponse(message="已删除")
 
 
 # ======================= 模型管理 =======================
@@ -111,7 +177,13 @@ async def synthesize(req: TTSRequest):
         raise HTTPException(status_code=404, detail=f"参考音频不存在: {req.ref_audio_path}")
 
     # 创建任务
-    task = task_service.create_task(req.text)
+    task = task_service.create_task(
+        req.text,
+        user_id=req.user_id,
+        prompt_text=req.prompt_text,
+        speed_factor=req.speed_factor,
+        ref_audio_path=req.ref_audio_path,
+    )
 
     if not req.streaming:
         # 非流式：同步执行，一次性返回
@@ -130,6 +202,7 @@ async def synthesize(req: TTSRequest):
                 temperature=req.temperature,
                 batch_size=req.batch_size,
                 seed=req.seed,
+                cancel_event=task._cancel_event,
             ))
 
             if not chunks:
@@ -144,17 +217,22 @@ async def synthesize(req: TTSRequest):
             AudioManager.save_wav(full_audio, final_sr, str(output_path))
 
             duration = len(full_audio) / final_sr
-            task_service.complete_task(task, output_name, duration, final_sr)
+            task_service.complete_task(task, output_name, duration, final_sr, req.user_id)
 
-            # 返回音频文件
+            # 返回音频文件，附上时长头
             return FileResponse(
                 path=str(output_path),
                 media_type="audio/wav",
                 filename=output_name,
+                headers={
+                    "X-Task-Id": task.task_id,
+                    "X-Audio-Duration": f"{duration:.2f}",
+                    "X-Audio-Sample-Rate": str(final_sr),
+                },
             )
 
         except Exception as e:
-            task_service.fail_task(task, str(e))
+            task_service.fail_task(task, str(e), req.user_id)
             raise HTTPException(status_code=500, detail=str(e))
 
     else:
@@ -182,6 +260,7 @@ async def synthesize(req: TTSRequest):
                     temperature=req.temperature,
                     batch_size=req.batch_size,
                     seed=req.seed,
+                    cancel_event=task._cancel_event,
                 ):
                     final_sr = sr
                     total_samples += len(chunk)
@@ -196,7 +275,7 @@ async def synthesize(req: TTSRequest):
                 task_service.complete_task(task, "", total_samples / final_sr, final_sr)
 
             except Exception as e:
-                task_service.fail_task(task, str(e))
+                task_service.fail_task(task, str(e), req.user_id)
                 yield b""
 
         return StreamingResponse(
@@ -207,12 +286,12 @@ async def synthesize(req: TTSRequest):
 
 
 @router.post("/tts/cancel")
-async def cancel_tts(task_id: str = Query(...)):
+async def cancel_tts(task_id: str = Query(...), user_id: int = Query(default=0)):
     """取消当前合成任务"""
     status = task_service.get_status(task_id)
     if status is None:
         raise HTTPException(status_code=404, detail="任务不存在")
-    task_service.cancel_task(task_service._active_task if task_service._active_task else Task(task_id=task_id))
+    task_service.cancel_task_by_id(task_id, user_id)
     return MessageResponse(message="已取消")
 
 
@@ -226,12 +305,32 @@ async def tts_status(task_id: str = Query(...)):
 
 
 @router.get("/tts/history")
-async def tts_history():
-    """最近 5 条历史记录"""
+async def tts_history(user_id: int = Query(default=0)):
+    """查询用户合成历史（从 SQLite）"""
+    if user_id > 0:
+        records = history_list_by_user(user_id, limit=50)
+        return JSONResponse(content=records)
+    # 兼容：无 user_id 时返回内存中的历史
     return JSONResponse(content=[h.model_dump() for h in task_service.list_history()])
 
 
-# ======================= 导出 =======================
+# ======================= 健康检查 =======================
+
+@router.get("/health")
+async def health():
+    """后端健康检查"""
+    return {"status": "ok", "service": "VoiceStudio Inference", "model_loaded": model_manager.is_loaded}
+
+@router.delete("/tts/history/{task_id}")
+async def delete_tts_history(task_id: str, user_id: int = Query(default=0)):
+    """删除一条合成历史"""
+    if user_id <= 0:
+        raise HTTPException(status_code=400, detail="缺少 user_id")
+    ok = history_delete_task(task_id, user_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="记录不存在或无权删除")
+    return MessageResponse(message="已删除")
+
 
 @router.get("/audio/export/{task_id}")
 async def export_audio(task_id: str, format: ExportFormat = Query(default=ExportFormat.WAV)):

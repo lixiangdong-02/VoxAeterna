@@ -1,0 +1,16 @@
+#!/bin/bash
+set -e
+
+echo "[VoxAeterna] FC bootstrap starting..."
+
+# 进入脚本所在目录（/code/cloud）
+cd "$(dirname "$0")"
+
+# 使用阿里云镜像源安装依赖
+pip3 install -r ./requirements-fc.txt -i https://mirrors.aliyun.com/pypi/simple/ --timeout 60 --retries 5
+
+PORT=${FC_SERVER_PORT:-9000}
+echo "[VoxAeterna] Starting FastAPI on port $PORT"
+
+# 启动 main.py
+exec python3 -m uvicorn main:app --host 0.0.0.0 --port $PORT --log-level info

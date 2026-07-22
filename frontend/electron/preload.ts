@@ -22,3 +22,25 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   // You can expose other APTs you need here.
   // ...
 })
+
+// 设备指纹 API
+contextBridge.exposeInMainWorld('deviceFingerprint', {
+  get: () => ipcRenderer.invoke('get-device-fingerprint'),
+})
+
+// 窗口控制 API
+contextBridge.exposeInMainWorld('windowControls', {
+  minimize: () => ipcRenderer.invoke('window-minimize'),
+  maximize: () => ipcRenderer.invoke('window-maximize'),
+  close: () => ipcRenderer.invoke('window-close'),
+  isMaximized: () => ipcRenderer.invoke('window-is-maximized'),
+  onMaximizeChange: (callback: (maximized: boolean) => void) => {
+    ipcRenderer.on('window-maximized', (_event, maximized: boolean) => callback(maximized))
+  },
+})
+
+// 版本更新 API
+contextBridge.exposeInMainWorld('appVersion', {
+  get: () => ipcRenderer.invoke('get-app-version'),
+  openUrl: (url: string) => ipcRenderer.invoke('open-external-url', url),
+})

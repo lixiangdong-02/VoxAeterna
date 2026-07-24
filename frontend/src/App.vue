@@ -2,10 +2,12 @@
 import { ref, onMounted } from 'vue'
 import { RouterView } from 'vue-router'
 import TitleBar from './components/TitleBar.vue'
+import SetupWizard from './components/SetupWizard.vue'
 import { versionApi } from '@/api'
 
 const showUpdate = ref(false)
 const updateInfo = ref({ version: '', download_url: '', changelog: '', force_update: false })
+const envReady = ref(false)
 
 async function checkVersion() {
   try {
@@ -48,6 +50,14 @@ function dismissUpdate() {
   showUpdate.value = false
 }
 
+function onEnvReady() {
+  envReady.value = true
+}
+
+function quitApp() {
+  window.close()
+}
+
 onMounted(() => {
   checkVersion()
 })
@@ -55,8 +65,12 @@ onMounted(() => {
 
 <template>
   <TitleBar />
-  <main class="app-main">
+  <SetupWizard @ready="onEnvReady" @quit="quitApp" />
+  <main class="app-main" v-if="envReady">
     <RouterView />
+  </main>
+  <main class="app-main" v-else>
+    <!-- 环境未就绪时显示空白，SetupWizard overlay 在上层 -->
   </main>
 
   <!-- 版本更新弹窗 -->

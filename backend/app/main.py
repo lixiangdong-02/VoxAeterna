@@ -1,4 +1,4 @@
-"""VoiceStudio Backend —— FastAPI 启动入口"""
+﻿"""VoiceStudio Backend — FastAPI 启动入口"""
 
 import sys
 from pathlib import Path
@@ -35,7 +35,6 @@ async def lifespan(app: FastAPI):
     logger.info("VoiceStudio Backend 启动")
     yield
     logger.info("VoiceStudio Backend 停止")
-    # 清理
     from app.services.file_service import FileService
     FileService().cleanup_temp()
 
@@ -48,7 +47,6 @@ app = FastAPI(
     root_path="/VoxAeterna",
 )
 
-# CORS —— Electron 前端默认 localhost:5173
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

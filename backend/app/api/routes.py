@@ -232,6 +232,7 @@ async def synthesize(req: TTSRequest):
             )
 
         except Exception as e:
+            logger.exception("TTS synthesis failed")
             task_service.fail_task(task, str(e), req.user_id)
             raise HTTPException(status_code=500, detail=str(e))
 

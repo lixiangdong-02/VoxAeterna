@@ -1,6 +1,7 @@
 import sys,os,torch
-sys.path.append(f"{os.getcwd()}/GPT_SoVITS/eres2net")
-sv_path = "GPT_SoVITS/pretrained_models/sv/pretrained_eres2netv2w24s4ep4.ckpt"
+_SV_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(_SV_DIR, "eres2net"))
+sv_path = os.path.join(_SV_DIR, "pretrained_models", "sv", "pretrained_eres2netv2w24s4ep4.ckpt")
 from ERes2NetV2 import ERes2NetV2
 import kaldi as Kaldi
 class SV:

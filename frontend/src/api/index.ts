@@ -112,7 +112,7 @@ export const exportApi = {
 // ======================= 云端 API（端口 8000）=========================
 
 const cloudAxios = axios.create({
-  baseURL: 'http://127.0.0.1:8000/api/v1',
+  baseURL: 'https://voxaeterna-jlekcxjcva.cn-hangzhou.fcapp.run/api/v1',
   timeout: 30000,
 })
 

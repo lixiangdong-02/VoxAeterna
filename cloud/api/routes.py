@@ -1,8 +1,7 @@
-"""浜戠 API 璺敱 鈥斺€?璁よ瘉 / 璁㈤槄 / 璇曠敤 / 绠＄悊鍚庡彴"""
+"""云端 API 路由 — 认证 / 订阅 / 试用 / 管理后台"""
 
 import sys
 import json
-import logging
 import logging
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -29,31 +28,31 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1")
 
 
-# ========== 渚濊禆 ==========
+# ========== 依赖 ==========
 
 async def current_user(authorization: str = Header(default=""), db: Session = Depends(get_db)) -> User:
     token = authorization.replace("Bearer ", "")
     if not token:
-        raise HTTPException(status_code=401, detail="鏈櫥褰曟垨 token 宸茶繃鏈?)
+        raise HTTPException(status_code=401, detail="未登录或 token 已过期")
     user = auth.get_current_user(db, token)
     if not user:
-        raise HTTPException(status_code=401, detail="鏈櫥褰曟垨 token 宸茶繃鏈?)
+        raise HTTPException(status_code=401, detail="未登录或 token 已过期")
     return user
 
 
 async def admin_required(user: User = Depends(current_user)) -> User:
     if user.role != "admin":
-        raise HTTPException(status_code=403, detail="闇€瑕佺鐞嗗憳鏉冮檺")
+        raise HTTPException(status_code=403, detail="需要管理员权限")
     return user
 
 
-# ========== 璁よ瘉 ==========
+# ========== 认证 ==========
 
 @router.post("/auth/register")
 async def register(req: schemas.RegisterRequest, db: Session = Depends(get_db)):
     try:
         user = auth.register_user(db, req)
-        return {"message": "娉ㄥ唽鎴愬姛", "user_id": user.id, "email": user.email}
+        return {"message": "注册成功", "user_id": user.id, "email": user.email}
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
 
@@ -62,9 +61,9 @@ async def register(req: schemas.RegisterRequest, db: Session = Depends(get_db)):
 async def login(req: schemas.LoginRequest, db: Session = Depends(get_db)):
     result = auth.login_user(db, req.email, req.password, req.device_fingerprint)
     if not result:
-        raise HTTPException(status_code=401, detail="閭鎴栧瘑鐮侀敊璇?)
+        raise HTTPException(status_code=401, detail="邮箱或密码错误")
     if result.get("error") == "email_not_verified":
-        raise HTTPException(status_code=403, detail=result.get("message", "璇峰厛楠岃瘉閭"))
+        raise HTTPException(status_code=403, detail=result.get("message", "请先验证邮箱"))
     return result
 
 
@@ -84,23 +83,25 @@ async def logout(authorization: str = Header(default=""), db: Session = Depends(
     if payload:
         jti = payload.get("jti", "")
         auth.delete_current_session(db, jti)
-    return {"message": "宸茬櫥鍑?}
+    return {"message": "已登出"}
 
 
 @router.post("/auth/send-verify-code")
 async def send_verify_code(req: schemas.SendVerifyCodeRequest, db: Session = Depends(get_db)):
-    """鍙戦€侀偖绠遍獙璇佺爜"""
+    """发送邮箱验证码"""
     if req.purpose == "register":
-        # 妫€鏌ラ偖绠辨槸鍚﹀凡琚敞鍐屽苟婵€娲?        user = db.query(User).filter(User.email == req.email).first()
+        # 检查邮箱是否已被注册并激活
+        user = db.query(User).filter(User.email == req.email).first()
         if user and user.status == "active":
-            raise HTTPException(status_code=409, detail="璇ラ偖绠卞凡娉ㄥ唽")
+            raise HTTPException(status_code=409, detail="该邮箱已注册")
     elif req.purpose == "reset_password":
-        # 妫€鏌ラ偖绠辨槸鍚﹀瓨鍦?        user = db.query(User).filter(User.email == req.email).first()
+        # 检查邮箱是否存在
+        user = db.query(User).filter(User.email == req.email).first()
         if not user:
-            # 涓嶆毚闇茬敤鎴锋槸鍚﹀瓨鍦紝缁熶竴杩斿洖鎴愬姛
-            return {"message": "濡傛灉璇ラ偖绠卞凡娉ㄥ唽锛岄獙璇佺爜灏嗗彂閫佽嚦鎮ㄧ殑閭", "sent": False}
+            # 不暴露用户是否存在，统一返回成功
+            return {"message": "如果该邮箱已注册，验证码将发送至您的邮箱", "sent": False}
         if user.status != "active":
-            raise HTTPException(status_code=403, detail="璇ヨ处鎴锋湭婵€娲伙紝鏃犳硶閲嶇疆瀵嗙爜")
+            raise HTTPException(status_code=403, detail="该账户未激活，无法重置密码")
 
     result = auth.send_verify_email(db, req.email, req.purpose)
     if not result["sent"] and "cooldown" in result:
@@ -110,7 +111,7 @@ async def send_verify_code(req: schemas.SendVerifyCodeRequest, db: Session = Dep
 
 @router.post("/auth/verify-email")
 async def verify_email(req: schemas.VerifyEmailRequest, db: Session = Depends(get_db)):
-    """鏍￠獙閭楠岃瘉鐮?""
+    """校验邮箱验证码"""
     ok, msg = auth.verify_email_code(db, req.email, req.code, "register")
     if not ok:
         raise HTTPException(status_code=400, detail=msg)
@@ -119,7 +120,7 @@ async def verify_email(req: schemas.VerifyEmailRequest, db: Session = Depends(ge
 
 @router.post("/auth/forgot-password")
 async def forgot_password(req: schemas.SendVerifyCodeRequest, db: Session = Depends(get_db)):
-    """鍙戦€佸瘑鐮侀噸缃獙璇佺爜"""
+    """发送密码重置验证码"""
     if req.purpose != "reset_password":
         req.purpose = "reset_password"
     return await send_verify_code(req, db)
@@ -127,7 +128,7 @@ async def forgot_password(req: schemas.SendVerifyCodeRequest, db: Session = Depe
 
 @router.post("/auth/reset-password")
 async def reset_password(req: schemas.ResetPasswordRequest, db: Session = Depends(get_db)):
-    """鐢ㄩ獙璇佺爜閲嶇疆瀵嗙爜"""
+    """用验证码重置密码"""
     ok, msg = auth.reset_password(db, req.email, req.code, req.new_password)
     if not ok:
         raise HTTPException(status_code=400, detail=msg)
@@ -142,7 +143,7 @@ async def profile(user: User = Depends(current_user)):
 
 @router.put("/auth/profile")
 async def update_profile(req: schemas.UpdateProfileRequest, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    """鏇存柊涓汉淇℃伅锛堢敤鎴峰悕锛?""
+    """更新个人信息（用户名）"""
     if req.username is not None:
         user.username = req.username
     db.commit()
@@ -153,15 +154,15 @@ async def update_profile(req: schemas.UpdateProfileRequest, user: User = Depends
 
 @router.put("/auth/password")
 async def change_password(req: schemas.ChangePasswordRequest, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    """淇敼瀵嗙爜"""
+    """修改密码"""
     if not auth.verify_password(req.old_password, user.password_hash):
-        raise HTTPException(status_code=400, detail="鍘熷瘑鐮侀敊璇?)
+        raise HTTPException(status_code=400, detail="原密码错误")
     user.password_hash = auth.hash_password(req.new_password)
     db.commit()
-    return {"message": "瀵嗙爜淇敼鎴愬姛"}
+    return {"message": "密码修改成功"}
 
 
-# ========== 璁㈤槄 ==========
+# ========== 订阅 ==========
 
 @router.get("/subscription/status")
 async def subscription_status(user: User = Depends(current_user), db: Session = Depends(get_db)):
@@ -186,7 +187,7 @@ async def create_payment_order(req: schemas.CreateOrderRequest, user: User = Dep
 async def get_order_status(order_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     order = db.query(PaymentOrder).filter(PaymentOrder.id == order_id, PaymentOrder.user_id == user.id).first()
     if not order:
-        raise HTTPException(status_code=404, detail="璁㈠崟涓嶅瓨鍦?)
+        raise HTTPException(status_code=404, detail="订单不存在")
     return {
         "order_id": order.id,
         "plan": order.plan,
@@ -211,14 +212,14 @@ async def payment_history(page: int = Query(default=1, ge=1), user: User = Depen
 
 @router.post("/subscription/callback")
 async def payment_callback(request: Request, db: Session = Depends(get_db)):
-    """鏀粯瀹濆紓姝ラ€氱煡鍥炶皟"""
+    """支付宝异步通知回调"""
     try:
         body = await request.body()
         form_str = body.decode("utf-8")
         from urllib.parse import parse_qs
         form_data = {k: v[0] for k, v in parse_qs(form_str).items()}
     except Exception:
-        raise HTTPException(status_code=400, detail="鏃犳晥鐨勮姹備綋")
+        raise HTTPException(status_code=400, detail="无效的请求体")
 
     sign = form_data.pop("sign", "")
     sign_type = form_data.pop("sign_type", "RSA2")
@@ -226,31 +227,31 @@ async def payment_callback(request: Request, db: Session = Depends(get_db)):
     out_trade_no = form_data.get("out_trade_no", "")
     total_amount = form_data.get("total_amount", "")
 
-    logger.info("[payment] 鏀粯瀹濆洖璋? out_trade_no=%s trade_status=%s", out_trade_no, trade_status)
+    logger.info("[payment] 支付宝回调 out_trade_no=%s trade_status=%s", out_trade_no, trade_status)
 
-    # 绛惧悕楠岃瘉
+    # 签名验证
     if _settings.alipay_public_key:
         if not subscription._alipay_verify_sign(form_data, sign):
-            logger.warning("[payment] 鏀粯瀹濈鍚嶉獙璇佸け璐? out_trade_no=%s", out_trade_no)
-            raise HTTPException(status_code=403, detail="绛惧悕楠岃瘉澶辫触")
+            logger.warning("[payment] 支付宝签名验证失败 out_trade_no=%s", out_trade_no)
+            raise HTTPException(status_code=403, detail="签名验证失败")
 
     order = db.query(PaymentOrder).filter(PaymentOrder.out_trade_no == out_trade_no).first()
     if not order:
-        raise HTTPException(status_code=404, detail="璁㈠崟涓嶅瓨鍦?)
+        raise HTTPException(status_code=404, detail="订单不存在")
 
     if trade_status == "TRADE_SUCCESS":
         order.status = "paid"
         order.paid_at = datetime.utcnow()
         subscription.activate_subscription(db, order.user_id, order.plan)
-        logger.info("[payment] 鏀粯鎴愬姛: user=%d plan=%s amount=%s", order.user_id, order.plan, total_amount)
+        logger.info("[payment] 支付成功: user=%d plan=%s amount=%s", order.user_id, order.plan, total_amount)
     elif trade_status == "TRADE_CLOSED":
         order.status = "cancelled"
 
     db.commit()
-    return {"message": "success"}  # 鏀粯瀹濊姹傝繑鍥炲皬鍐?success
+    return {"message": "success"}  # 支付宝要求返回小写 success
 
 
-# ========== 璇曠敤 ==========
+# ========== 试用 ==========
 
 @router.post("/trial/sync")
 async def sync_trial(req: schemas.TrialSyncRequest, user: User = Depends(current_user), db: Session = Depends(get_db)):
@@ -268,7 +269,7 @@ async def trial_status(device_fingerprint: str = Query(...), user: User = Depend
     return {"remaining": trial.remaining, "total_used": trial.total_used}
 
 
-# ========== 鐢ㄩ噺 ==========
+# ========== 用量 ==========
 
 @router.post("/usage/report")
 async def report_usage(req: schemas.UsageLogRequest, user: User = Depends(current_user), db: Session = Depends(get_db)):
@@ -277,7 +278,7 @@ async def report_usage(req: schemas.UsageLogRequest, user: User = Depends(curren
     return {"message": "ok"}
 
 
-# ========== 鐢ㄦ埛 ==========
+# ========== 用户 ==========
 
 @router.get("/user/usage-stats")
 async def usage_stats(user: User = Depends(current_user), db: Session = Depends(get_db)):
@@ -318,7 +319,7 @@ async def list_sessions(user: User = Depends(current_user), db: Session = Depend
 
 @router.post("/user/sessions/revoke-all")
 async def revoke_all_sessions(authorization: str = Header(default=""), user: User = Depends(current_user), db: Session = Depends(get_db)):
-    """鐧诲嚭鎵€鏈夊叾浠栬澶囷紙淇濈暀褰撳墠浼氳瘽锛?""
+    """登出所有其他设备（保留当前会话）"""
     current_jti = ""
     token = authorization.replace("Bearer ", "")
     if token:
@@ -335,21 +336,21 @@ async def revoke_all_sessions(authorization: str = Header(default=""), user: Use
     else:
         auth.delete_user_sessions(db, user.id)
     db.commit()
-    return {"message": "宸茬櫥鍑烘墍鏈夊叾浠栬澶?}
+    return {"message": "已登出所有其他设备"}
 
 
 @router.delete("/user/account")
 async def delete_account(req: schemas.DeleteAccountRequest, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    """娉ㄩ攢璐︽埛锛堥渶楠岃瘉瀵嗙爜锛?""
+    """注销账户（需验证密码）"""
     if not auth.verify_password(req.password, user.password_hash):
-        raise HTTPException(status_code=400, detail="瀵嗙爜閿欒")
+        raise HTTPException(status_code=400, detail="密码错误")
     user.status = "disabled"
     auth.delete_user_sessions(db, user.id)
     db.commit()
-    return {"message": "璐︽埛宸叉敞閿€"}
+    return {"message": "账户已注销"}
 
 
-# ========== 鍏憡 ==========
+# ========== 公告 ==========
 
 @router.get("/announcements")
 async def list_announcements(db: Session = Depends(get_db)):
@@ -357,7 +358,7 @@ async def list_announcements(db: Session = Depends(get_db)):
     return [schemas.AnnouncementResponse(id=a.id, title=a.title, body=a.body, is_active=bool(a.is_active), created_at=a.created_at) for a in anns]
 
 
-# ========== 绠＄悊鍚庡彴 ==========
+# ========== 管理后台 ==========
 
 @router.get("/admin/stats")
 async def admin_stats(_: User = Depends(admin_required), db: Session = Depends(get_db)):
@@ -380,7 +381,7 @@ async def admin_list_users(page: int = Query(default=1, ge=1), search: str = Que
     items = []
     for u in users:
         sub = db.query(Subscription).filter(Subscription.user_id == u.id, Subscription.status == "active").first()
-        # 鑱氬悎璇ョ敤鎴锋墍鏈夎澶囩殑璇曠敤淇℃伅
+        # 聚合该用户所有设备的试用信息
         trial_rows = db.query(TrialCount).filter(TrialCount.user_id == u.id).all()
         trial_remaining = sum(t.remaining for t in trial_rows)
         items.append(schemas.UserListItem(
@@ -397,13 +398,13 @@ async def admin_update_user(user_id: int, req: schemas.AdminUserUpdateRequest,
                             _: User = Depends(admin_required), db: Session = Depends(get_db)):
     u = db.query(User).filter(User.id == user_id).first()
     if not u:
-        raise HTTPException(status_code=404, detail="鐢ㄦ埛涓嶅瓨鍦?)
+        raise HTTPException(status_code=404, detail="用户不存在")
     if req.status:
         u.status = req.status
     if req.role:
         u.role = req.role
     db.commit()
-    return {"message": "宸叉洿鏂?}
+    return {"message": "已更新"}
 
 
 @router.post("/admin/subscriptions")
@@ -411,7 +412,7 @@ async def admin_create_subscription(req: schemas.AdminSubscriptionCreateRequest,
                                     _: User = Depends(admin_required), db: Session = Depends(get_db)):
     u = db.query(User).filter(User.id == req.user_id).first()
     if not u:
-        raise HTTPException(status_code=404, detail="鐢ㄦ埛涓嶅瓨鍦?)
+        raise HTTPException(status_code=404, detail="用户不存在")
     db.query(Subscription).filter(Subscription.user_id == req.user_id, Subscription.status == "active").update({"status": "cancelled"})
     now = datetime.utcnow()
     days = req.duration_days or subscription.PLAN_DURATION.get(req.plan.value, 30)
@@ -419,7 +420,7 @@ async def admin_create_subscription(req: schemas.AdminSubscriptionCreateRequest,
     db.add(sub)
     db.commit()
     db.refresh(sub)
-    return {"message": "宸插紑閫?, "subscription_id": sub.id, "expires_at": str(sub.expires_at)}
+    return {"message": "已开通", "subscription_id": sub.id, "expires_at": str(sub.expires_at)}
 
 
 @router.post("/admin/announcements")
@@ -429,7 +430,7 @@ async def admin_create_announcement(req: schemas.AnnouncementCreateRequest,
     db.add(a)
     db.commit()
     db.refresh(a)
-    return {"message": "鍏憡宸插彂甯?, "id": a.id}
+    return {"message": "公告已发布", "id": a.id}
 
 
 @router.put("/admin/announcements/{ann_id}")
@@ -437,7 +438,7 @@ async def admin_update_announcement(ann_id: int, req: schemas.AnnouncementUpdate
                                     _: User = Depends(admin_required), db: Session = Depends(get_db)):
     a = db.query(Announcement).filter(Announcement.id == ann_id).first()
     if not a:
-        raise HTTPException(status_code=404, detail="鍏憡涓嶅瓨鍦?)
+        raise HTTPException(status_code=404, detail="公告不存在")
     if req.title is not None:
         a.title = req.title
     if req.body is not None:
@@ -445,7 +446,7 @@ async def admin_update_announcement(ann_id: int, req: schemas.AnnouncementUpdate
     if req.is_active is not None:
         a.is_active = int(req.is_active)
     db.commit()
-    return {"message": "宸叉洿鏂?}
+    return {"message": "已更新"}
 
 
 

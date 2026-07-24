@@ -332,10 +332,10 @@ class TTS_Config:
             self.vits_weights_path = self.default_configs[version]["vits_weights_path"]
             print(f"fall back to default vits_weights_path: {self.vits_weights_path}")
         if (self.bert_base_path in [None, ""]) or (not os.path.exists(self.bert_base_path)):
-            self.bert_base_path = self.default_configs[version]["bert_base_path"]
+            self.bert_base_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "pretrained_models", "chinese-roberta-wwm-ext-large")
             print(f"fall back to default bert_base_path: {self.bert_base_path}")
         if (self.cnhuhbert_base_path in [None, ""]) or (not os.path.exists(self.cnhuhbert_base_path)):
-            self.cnhuhbert_base_path = self.default_configs[version]["cnhuhbert_base_path"]
+            self.cnhuhbert_base_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "pretrained_models", "chinese-hubert-base")
             print(f"fall back to default cnhuhbert_base_path: {self.cnhuhbert_base_path}")
         self.update_configs()
 

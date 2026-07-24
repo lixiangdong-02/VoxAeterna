@@ -1,0 +1,71 @@
+# ============================================================
+# VoxAeterna 推理后端 — 完整依赖列表
+# 首次启动时自动安装到 %APPDATA%/VoxAeterna/python/
+# ============================================================
+
+# --- PyTorch（CPU 版；如需 CUDA 请自行替换）---
+# torch — PyTorch 需手动安装（约2.5GB），其他依赖自动安装
+# torchaudio — 随 torch 手动安装
+
+# --- 核心 Web 框架 ---
+fastapi[standard]>=0.115.2
+uvicorn[standard]>=0.23.0
+pydantic>=2.0
+pydantic-settings>=2.0.0
+python-multipart>=0.0.6
+
+# --- 数值 & 音频处理 ---
+numpy<2.0
+scipy
+librosa>=0.10.0
+numba
+soundfile
+ffmpeg-python
+av>=11
+
+# --- GPT-SoVITS 推理依赖 ---
+# funasr + modelscope（语音识别）
+funasr>=1.0.27
+modelscope>=1.10.0
+
+# Transformers 生态
+transformers>=4.43
+tokenizers>=0.13
+sentencepiece
+peft
+huggingface_hub>=0.13
+x_transformers
+
+# 中文处理
+cn2an
+pypinyin
+# pyopenjtalk>=0.4.1  # 日语 TTS，需 C++ 编译器，默认不装
+jieba
+# jieba_fast  # Cython 扩展，Windows 需 C++ 编译器，用纯 Python 版 jieba 代替
+split-lang
+fast_langdetect>=0.3.1
+opencc
+
+# 多语言
+g2p_en
+g2pk2
+ko_pron
+wordsegment
+rotary_embedding_torch
+ToJyutping
+
+# 推理加速
+ctranslate2>=4.0
+onnxruntime
+
+# 训练/工具（GPT-SoVITS 需要的）
+pytorch-lightning>=2.4
+torchmetrics
+tensorboard
+
+# 工具
+tqdm
+chardet
+PyYAML
+psutil
+gradio<5

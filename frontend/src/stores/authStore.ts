@@ -1,3 +1,4 @@
+import type { UserInfo } from '@/types'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { authApi } from '@/api'
@@ -5,7 +6,7 @@ import { authApi } from '@/api'
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem('vox_token') || '')
   const isLoggedIn = ref(!!token.value)
-  const user = ref<{ id: number; email: string; username: string; role: string; created_at: string | null } | null>(null)
+  const user = ref<UserInfo | null>(null)
   const loginError = ref('')
   const registerError = ref('')
 

@@ -58,6 +58,49 @@ from app.config import InferenceSettings
 _settings = InferenceSettings()
 
 
+def _ensure_pretrained_models(target_dir: Path):
+    """首次运行时从 ModelScope 下载预训练模型二进制文件到 appdata"""
+    marker = target_dir / "sv" / "pretrained_eres2netv2w24s4ep4.ckpt"
+    if marker.exists():
+        return
+    logger.info("预训练模型未找到，从 ModelScope 下载（首次约 ~2GB，请耐心等待）...")
+    target_dir.mkdir(parents=True, exist_ok=True)
+    import requests
+    base_url = "https://www.modelscope.cn/api/v1/models/anmain001/VoxAeterna-Models/repo?Revision=master&FilePath="
+    files_to_dl = [
+        "pretrained_models/chinese-hubert-base/config.json",
+        "pretrained_models/chinese-hubert-base/preprocessor_config.json",
+        "pretrained_models/chinese-hubert-base/pytorch_model.bin",
+        "pretrained_models/chinese-roberta-wwm-ext-large/config.json",
+        "pretrained_models/chinese-roberta-wwm-ext-large/pytorch_model.bin",
+        "pretrained_models/chinese-roberta-wwm-ext-large/special_tokens_map.json",
+        "pretrained_models/chinese-roberta-wwm-ext-large/tokenizer_config.json",
+        "pretrained_models/chinese-roberta-wwm-ext-large/tokenizer.json",
+        "pretrained_models/chinese-roberta-wwm-ext-large/vocab.txt",
+        "pretrained_models/fast_langdetect/lid.176.bin",
+        "pretrained_models/sv/pretrained_eres2netv2w24s4ep4.ckpt",
+    ]
+    for fpath in files_to_dl:
+        rel = fpath.replace("pretrained_models/", "", 1)
+        dest = target_dir / rel
+        if dest.exists():
+            continue
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        url = base_url + fpath
+        logger.info(f"  下载 {rel} ...")
+        try:
+            r = requests.get(url, stream=True, timeout=600)
+            if r.status_code == 200:
+                with open(dest, "wb") as f:
+                    for chunk in r.iter_content(65536):
+                        f.write(chunk)
+                logger.info(f"  {rel} 完成")
+            else:
+                logger.warning(f"  {rel} HTTP {r.status_code}")
+        except Exception as e:
+            logger.warning(f"  {rel} 失败: {e}")
+    logger.info("预训练模型检查完成")
+
 class ModelManager:
     """管理 TTS 模型生命周期"""
 
@@ -125,8 +168,13 @@ class ModelManager:
                 from GPT_SoVITS.process_ckpt import get_sovits_version_from_path_fast
                 _, model_version, _ = get_sovits_version_from_path_fast(vits_path)
 
-                # 基础模型路径
-                pretrained = _INFERENCE_DIR / "GPT_SoVITS" / "pretrained_models"
+                # 基础模型路径：二进制文件下载到 appdata，JSON 配置从安装目录读取
+                _appdata_pretrained = Path(_os.environ.get("APPDATA", "")) / "VoxAeterna" / "pretrained_models"
+                _bundled_pretrained = _INFERENCE_DIR / "GPT_SoVITS" / "pretrained_models"
+                # 先确保二进制文件（.bin/.ckpt）下载到 appdata
+                _ensure_pretrained_models(_appdata_pretrained)
+                # 优先用 appdata（含二进制），配置 JSON 从 bundled 补充
+                pretrained = _appdata_pretrained
                 bert_path = str(pretrained / "chinese-roberta-wwm-ext-large")
                 cnhubert_path = str(pretrained / "chinese-hubert-base")
 

@@ -112,8 +112,8 @@ def _send_email(to_email: str, subject: str, html_body: str) -> bool:
         msg["To"] = to_email
         msg.attach(MIMEText(html_body, "html", "utf-8"))
 
-        with smtplib.SMTP(_settings.smtp_host, _settings.smtp_port, timeout=10) as server:
-            server.starttls()
+        # 使用 SSL 直连，替换原来的 SMTP + starttls
+        with smtplib.SMTP_SSL(_settings.smtp_host, 465, timeout=10) as server:
             server.login(_settings.smtp_user, _settings.smtp_pass)
             server.send_message(msg)
         logger.info("[email] 邮件发送成功: %s → %s", subject, to_email)

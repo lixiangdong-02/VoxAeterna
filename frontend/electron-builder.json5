@@ -15,36 +15,37 @@
     {
       "from": "../backend",
       "to": "backend",
-      "filter": ["**/*.py", "**/*.yaml", "**/*.yml", "**/*.json"]
+      "filter": ["**/*.py", "**/*.yaml", "**/*.yml", "**/*.json", "**/*.txt", "**/*.cfg", "**/*.toml", "**/*.rep", "**/*.dict", "**/*.model", "**/*.onnx", "**/*.pickle", "**/*.csv"]
     },
     {
       "from": "../cloud",
       "to": "cloud",
-      "filter": ["**/*.py", "**/*.yaml", "**/*.yml", "**/*.json"]
+      "filter": ["**/*.py", "**/*.yaml", "**/*.yml", "**/*.json", "**/*.txt", "**/*.cfg", "**/*.toml", "**/*.rep", "**/*.dict", "**/*.model", "**/*.onnx", "**/*.pickle", "**/*.csv"]
     },
     {
-      "from": "../icon.png",
-      "to": "icon.png"
+      "from": "../requirements-backend.txt",
+      "to": "requirements-backend.txt"
     },
     {
       "from": "../.env",
       "to": ".env"
+    },
+    {
+      "from": "../favicon.ico",
+      "to": "favicon.ico"
     }
   ],
   "mac": {
-    "target": [
-      "dmg"
-    ],
+    "target": ["dmg"],
     "artifactName": "${productName}-Mac-${version}-Installer.${ext}"
   },
   "win": {
-    "icon": "../icon.png",
+    "icon": "../favicon.ico",
+    "sign": null,
     "target": [
       {
         "target": "nsis",
-        "arch": [
-          "x64"
-        ]
+        "arch": ["x64"]
       }
     ],
     "artifactName": "${productName}-Windows-${version}-Setup.${ext}"
@@ -56,10 +57,8 @@
     "deleteAppDataOnUninstall": false
   },
   "linux": {
-    "icon": "../icon.png",
-    "target": [
-      "AppImage"
-    ],
+    "icon": "../favicon.ico",
+    "target": ["AppImage"],
     "artifactName": "${productName}-Linux-${version}.${ext}"
   }
 }

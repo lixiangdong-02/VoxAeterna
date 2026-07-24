@@ -54,3 +54,4 @@ cloud/admin/node_modules/
 
 # FC build temp
 cloud/voxaeterna-fc/
+data/history.db 
